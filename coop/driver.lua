@@ -44,6 +44,9 @@ local spec = {
 	}
 }
 
+-- Previous values for every memory address
+local previousValues	= {}
+
 function recordChanged(record, value, previousValue)
 	local allow = true
 	if record.kind == "high" then
@@ -84,21 +87,39 @@ function GameDriver:childTick()
 end
 
 function GameDriver:childWake()
+	-- This function used to run once to
+	-- do a bunch of memory.registerwrite
+	-- Not any more! :)
+	return
+end
+
+function GameDriver:checkValues()
+	-- Check every designated value against its previous value.
+	-- If it has changed, update the original registered function.
+	local mValue = nil
+	local changed = 0
 	for k,v in pairs(spec.sync) do
-		memory.registerwrite (k, 1, function(a,b) if a==k then self:memoryWrite(a,b,v) end end)
+		mValue = memory.readbyte(k)
+		if previousValues[k] and previousValues[k] ~= mValue then
+			print(string.format("Address %06X changed (%02X -> %02X)", k, previousValues[k], mValue))
+			self:memoryWrite(k, v, mValue)
+			changed = changed + 1
+		end
+		previousValues[k] = mValue
 	end
+	return changed
 end
 
 function GameDriver:isRunning()
 	return performTest(spec.running)
 end
 
-function GameDriver:memoryWrite(addr, arg2, record)
+function GameDriver:memoryWrite(addr, record, value)
 	local running = spec.running
 
-	if self:isRunning() then -- TODO: Yes, we got record, but double check
+	if self:isRunning() then
+		-- Only send updates if the game is actually running.
 		local allow = true
-		local value = memory.readbyte(addr)
 
 		if record.cache then
 			allow = recordChanged(record, value, record.cache)

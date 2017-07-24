@@ -7,6 +7,7 @@ require "util"
 require "ircdialog"
 require "pipe"
 require "driver"
+local _gameDriver	= nil
 
 -- PROGRAM
 
@@ -31,7 +32,8 @@ if emu.emulating() then
 		if not result then errorMessage("Could not connect to IRC: " .. err) failed = true return end
 
 		statusMessage("Connecting to server...")
-		IrcPipe(data, GameDriver()):wake(server)
+		_gameDriver = GameDriver()
+		IrcPipe(data, _gameDriver):wake(server)
 	end
 
 	if not failed then connect() end
@@ -40,4 +42,10 @@ if emu.emulating() then
 
 else
 	refuseDialog()
+end
+
+while true do
+	-- Check, every frame, for updated memory values
+	local changes = _gameDriver:checkValues()
+	emu.frameadvance()
 end
